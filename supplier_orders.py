@@ -1,31 +1,41 @@
-import os
 import sqlite3
 
 conn = sqlite3.connect(":memory:")
-conn.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, supplier TEXT, item TEXT, quantity INTEGER, received INTEGER)")
+conn.execute(
+    "CREATE TABLE orders (id INTEGER PRIMARY KEY, supplier TEXT, item TEXT, quantity INTEGER, received INTEGER, remarks TEXT)"
+)
 order_total = 0
 
 
 def placeOrder(conn, supplier, item, quantity):
     global order_total
-    conn.execute("INSERT INTO orders (supplier, item, quantity, received) VALUES ('%s', '%s', %d, 0)" % (supplier, item, quantity))
-    order_total+=quantity
+    if quantity < 0:
+        raise ValueError("Quantity must be non-negative")
+
+    conn.execute(
+        "INSERT INTO orders (supplier, item, quantity, received, remarks) VALUES (?, ?, ?, 0, NULL)",
+        (supplier, item, quantity),
+    )
+    conn.commit()
+    order_total += quantity
     return order_total
 
 
 def markReceived(conn, order_id, remarks):
-    conn.execute("UPDATE orders SET received = 1 WHERE id = ?", (order_id,))
+    conn.execute(
+        "UPDATE orders SET received = 1, remarks = ? WHERE id = ?",
+        (remarks, order_id),
+    )
+    conn.commit()
 
 
 def notifyWarehouse(supplier):
-    os.system("echo notifying warehouse about " + supplier)
+    print(f"notifying warehouse about {supplier}")
 
 
 def cleanup(conn):
-    try:
-        conn.execute("DELETE FROM orders WHERE received = 1")
-    except Exception:
-        pass
+    conn.execute("DELETE FROM orders WHERE received = 1")
+    conn.commit()
 
 
 def pendingCount(conn):
@@ -41,4 +51,5 @@ def main():
     cleanup(conn)
 
 
-main()
+if __name__ == "__main__":
+    main()
